@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="MyMonie">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="manifest" href="manifest.json">
+<title>MyMonie</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+:root{
+  --bg:#f2f2f7;--card:#fff;--sep:rgba(0,0,0,0.12);--border:rgba(0,0,0,0.07);
+  --lbl:#000;--lbl2:#3c3c43;--lbl3:#8e8e93;--lbl4:#c7c7cc;
+  --blue:#007aff;--green:#34c759;--red:#ff3b30;--orange:#ff9500;
+  --purple:#af52de;--indigo:#5856d6;--teal:#30b0c7;
+  --r:12px;--rl:16px;
+}
+html,body{background:var(--bg);color:var(--lbl);font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased;overscroll-behavior:none;}
+
+.nav{position:sticky;top:0;z-index:100;background:rgba(242,242,247,.9);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);border-bottom:.5px solid var(--sep);padding-top:env(safe-area-inset-top,0px);}
+.nav-inner{display:flex;align-items:center;justify-content:space-between;padding:10px 16px 8px;}
+.nav-title{font-size:17px;font-weight:600;letter-spacing:-.3px;}
+.mnav{display:flex;align-items:center;gap:2px;}
+.mnav button{background:none;border:none;color:var(--blue);font-size:24px;font-weight:300;cursor:pointer;padding:0 6px;line-height:1;}
+.mnav-lbl{font-size:15px;font-weight:500;color:var(--blue);min-width:130px;text-align:center;}
+
+.tab-bar{position:fixed;bottom:0;left:0;right:0;z-index:100;background:rgba(242,242,247,.93);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);border-top:.5px solid var(--sep);padding-bottom:env(safe-area-inset-bottom,0px);display:flex;}
+.ti{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 0 3px;background:none;border:none;cursor:pointer;color:var(--lbl3);transition:color .15s;}
+.ti.active{color:var(--blue);}
+.ti-icon{font-size:23px;line-height:1;}
+.ti-lbl{font-size:10px;font-weight:500;}
+
+.page{padding:16px 16px 100px;max-width:430px;margin:0 auto;}
+.view{display:none;}
+.view.active{display:block;}
+.lg-title{font-size:28px;font-weight:700;letter-spacing:-.5px;margin-bottom:4px;}
+.lg-sub{font-size:13px;color:var(--lbl3);margin-bottom:16px;}
+.sec-lbl{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--lbl3);padding:0 4px 8px;}
+
+.card{background:var(--card);border-radius:var(--rl);margin-bottom:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06),0 0 0 .5px var(--border);}
+.card-mb20{margin-bottom:20px;}
+
+.row{display:flex;align-items:center;padding:11px 16px;min-height:44px;border-top:.5px solid var(--sep);gap:10px;}
+.row:first-child{border-top:none;}
+.ricon{width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
+.rlbl{flex:1;font-size:16px;}
+.rsub{font-size:12px;color:var(--lbl3);margin-top:1px;}
+.rval{font-size:16px;color:var(--lbl3);}
+.inp{background:none;border:none;font-family:inherit;font-size:16px;color:var(--lbl);text-align:right;width:100px;outline:none;}
+.inp::placeholder{color:var(--lbl4);}
+.inp:focus{color:var(--blue);}
+.cur{font-size:14px;color:var(--lbl3);margin-left:2px;}
+
+/* ── BIG THREE ── */
+.big3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;}
+.b3card{border-radius:var(--rl);padding:14px 12px;box-shadow:0 1px 3px rgba(0,0,0,.06),0 0 0 .5px var(--border);}
+.b3card.income {background:#e8f4ff;}
+.b3card.expense{background:#fff0f0;}
+.b3card.savings{background:#edfbf2;}
+.b3-lbl{font-size:11px;font-weight:600;color:var(--lbl3);margin-bottom:5px;text-transform:uppercase;letter-spacing:.3px;}
+.b3-val{font-size:18px;font-weight:700;letter-spacing:-.5px;line-height:1.1;}
+.b3-val.blue {color:var(--blue);}
+.b3-val.red  {color:var(--red);}
+.b3-val.green{color:var(--green);}
+.b3-sub{font-size:10px;color:var(--lbl3);margin-top:3px;}
+
+/* ── EXCHANGE CARD ── */
+.ex-card{background:linear-gradient(135deg,var(--indigo),var(--purple));border-radius:var(--rl);padding:16px;margin-bottom:12px;color:#fff;box-shadow:0 4px 16px rgba(88,86,214,.28);}
+.ex-card-title{font-size:12px;font-weight:600;opacity:.8;margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px;}
+.ex-main-row{display:flex;align-items:flex-end;justify-content:space-between;}
+.ex-usd-lbl{font-size:13px;opacity:.75;margin-bottom:2px;}
+.ex-usd-val{font-size:22px;font-weight:700;letter-spacing:-.5px;}
+.ex-arrow{font-size:18px;opacity:.6;padding:0 8px;align-self:center;}
+.ex-mvr-wrap{text-align:right;}
+.ex-mvr-lbl{font-size:11px;opacity:.7;margin-bottom:2px;}
+.ex-mvr-val{font-size:28px;font-weight:700;letter-spacing:-.8px;line-height:1;}
+
+/* ── AVAILABLE TO SPEND ── */
+.spend-card{background:var(--card);border-radius:var(--rl);padding:16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.06),0 0 0 .5px var(--border);}
+.spend-title{font-size:12px;font-weight:600;color:var(--lbl3);margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px;}
+.spend-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;}
+.spend-item{background:var(--bg);border-radius:10px;padding:10px 12px;}
+.spend-item-lbl{font-size:11px;color:var(--lbl3);font-weight:500;margin-bottom:3px;}
+.spend-item-val{font-size:20px;font-weight:700;letter-spacing:-.4px;}
+.spend-item-val.teal {color:var(--teal);}
+.spend-item-val.green{color:var(--green);}
+.spend-item-sub{font-size:10px;color:var(--lbl4);margin-top:2px;}
+.spend-total-row{display:flex;justify-content:space-between;align-items:center;padding-top:10px;border-top:.5px solid var(--sep);}
+.spend-total-lbl{font-size:12px;color:var(--lbl3);}
+.spend-total-val{font-size:15px;font-weight:700;color:var(--lbl);}
+
+/* ── FLOAT STRIP ── */
+.float-strip{background:var(--card);border-radius:var(--rl);padding:12px 16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.06),0 0 0 .5px var(--border);display:flex;align-items:center;gap:12px;}
+.float-strip-lbl{font-size:12px;color:var(--lbl3);font-weight:600;flex-shrink:0;}
+.float-strip-items{display:flex;gap:16px;flex:1;}
+.fsi{display:flex;flex-direction:column;}
+.fsi-lbl{font-size:10px;color:var(--lbl4);margin-bottom:1px;}
+.fsi-val{font-size:13px;font-weight:600;color:var(--lbl2);}
+.float-strip-total{text-align:right;flex-shrink:0;}
+.fst-lbl{font-size:10px;color:var(--lbl4);margin-bottom:1px;}
+.fst-val{font-size:13px;font-weight:700;color:var(--lbl);}
+
+/* ── ALL-TIME ── */
+.alltime-strip{background:var(--card);border-radius:var(--r);padding:10px 14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.06),0 0 0 .5px var(--border);display:flex;justify-content:space-between;align-items:center;}
+.alltime-lbl{font-size:12px;color:var(--lbl3);}
+.alltime-val{font-size:14px;font-weight:700;color:var(--green);}
+
+/* ── SAVINGS INPUT ── */
+.save-usd-row{display:flex;align-items:center;gap:10px;padding:11px 16px;min-height:44px;}
+.save-usd-inp{background:var(--bg);border:.5px solid var(--sep);border-radius:8px;font-family:inherit;font-size:18px;font-weight:700;color:var(--green);text-align:center;width:100px;padding:6px 8px;outline:none;}
+.save-usd-inp:focus{border-color:var(--green);}
+.save-usd-desc{flex:1;}
+.save-usd-pct{font-size:15px;font-weight:600;color:var(--green);}
+.save-usd-sub{font-size:12px;color:var(--lbl3);margin-top:1px;}
+
+/* ── EXTRAS ── */
+.extra-row{display:flex;align-items:center;padding:10px 16px;min-height:44px;border-top:.5px solid var(--sep);gap:8px;}
+.del-btn{background:var(--red);border:none;color:#fff;width:22px;height:22px;border-radius:50%;font-size:16px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-weight:600;}
+.extra-name{flex:1;background:none;border:none;font-family:inherit;font-size:16px;color:var(--lbl);outline:none;}
+.extra-name::placeholder{color:var(--lbl4);}
+.extra-amt{background:none;border:none;font-family:inherit;font-size:16px;color:var(--lbl);text-align:right;width:80px;outline:none;}
+.extra-amt::placeholder{color:var(--lbl4);}
+.extra-amt:focus{color:var(--orange);}
+.add-btn{display:flex;align-items:center;gap:12px;padding:10px 16px;min-height:44px;border-top:.5px solid var(--sep);background:none;border-left:none;border-right:none;border-bottom:none;width:100%;cursor:pointer;color:var(--blue);font-family:inherit;font-size:16px;}
+.add-icon{width:30px;height:30px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+
+/* ── HISTORY ── */
+.hist-item{background:var(--card);border-radius:var(--rl);margin-bottom:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06),0 0 0 .5px var(--border);}
+.hist-hdr{display:flex;align-items:center;padding:14px 16px;cursor:pointer;gap:10px;}
+.hist-name{flex:1;font-size:16px;font-weight:600;}
+.hist-badge{font-size:13px;font-weight:600;padding:3px 10px;border-radius:20px;}
+.hist-badge.pos{background:rgba(52,199,89,.12);color:var(--green);}
+.hist-badge.neg{background:rgba(255,59,48,.1);color:var(--red);}
+.hist-chev{font-size:12px;color:var(--lbl3);transition:transform .2s;}
+.hist-chev.open{transform:rotate(90deg);}
+.hist-body{display:none;}
+.hist-body.open{display:block;}
+.hist-detail{display:flex;justify-content:space-between;align-items:center;padding:9px 16px;border-top:.5px solid var(--sep);font-size:14px;}
+.hist-dl{color:var(--lbl2);}
+.hist-dv{color:var(--lbl);font-weight:500;}
+.hist-section{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--lbl3);padding:10px 16px 2px;border-top:.5px solid var(--sep);}
+
+.save-btn{display:block;width:100%;background:var(--blue);color:#fff;font-family:inherit;font-size:17px;font-weight:600;border:none;border-radius:var(--rl);padding:14px;cursor:pointer;margin-bottom:12px;transition:opacity .15s;}
+.save-btn:active{opacity:.8;}
+.danger-lbl{color:var(--red);}
+
+.toast{position:fixed;top:calc(env(safe-area-inset-top,44px) + 54px);left:50%;transform:translateX(-50%) translateY(-6px);background:rgba(0,0,0,.75);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);color:#fff;font-size:14px;font-weight:500;padding:9px 20px;border-radius:20px;opacity:0;pointer-events:none;z-index:999;transition:all .25s;white-space:nowrap;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <div class="nav-inner">
+    <div class="nav-title">MyMonie</div>
+    <div class="mnav">
+      <button onclick="changeMonth(-1)">‹</button>
+      <div class="mnav-lbl" id="monthLbl"></div>
+      <button onclick="changeMonth(1)">›</button>
+    </div>
+  </div>
+</div>
+
+<div class="page">
+
+  <!-- ══ OVERVIEW ══ -->
+  <div id="tab-overview" class="view active">
+    <div class="lg-title">Overview</div>
+    <div class="lg-sub" id="ov-subtitle">–</div>
+
+    <!-- 1. Big three -->
+    <div class="big3">
+      <div class="b3card income">
+        <div class="b3-lbl">Income</div>
+        <div class="b3-val blue" id="ov-income">$0</div>
+        <div class="b3-sub" id="ov-income-m">MVR 0</div>
+      </div>
+      <div class="b3card expense">
+        <div class="b3-lbl">Expenses</div>
+        <div class="b3-val red" id="ov-expenses">$0</div>
+        <div class="b3-sub" id="ov-expenses-m">MVR 0</div>
+      </div>
+      <div class="b3card savings">
+        <div class="b3-lbl">Savings</div>
+        <div class="b3-val green" id="ov-savings">$0</div>
+        <div class="b3-sub" id="ov-savings-pct">0%</div>
+      </div>
+    </div>
+
+    <!-- 2. Exchange -->
+    <div class="ex-card">
+      <div class="ex-card-title">💱 USD Exchange Amount</div>
+      <div class="ex-main-row">
+        <div>
+          <div class="ex-usd-lbl">You send</div>
+          <div class="ex-usd-val" id="ov-ex-usd">$0.00</div>
+        </div>
+        <div class="ex-arrow">→</div>
+        <div class="ex-mvr-wrap">
+          <div class="ex-mvr-lbl">You receive</div>
+          <div class="ex-mvr-val" id="ov-ex-mvr">MVR 0</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. Available to spend -->
+    <div class="spend-card">
+      <div class="spend-title">💰 Available to Spend This Month</div>
+      <div class="spend-grid">
+        <div class="spend-item">
+          <div class="spend-item-lbl">MVR</div>
+          <div class="spend-item-val teal" id="ov-spend-mvr">0</div>
+          <div class="spend-item-sub">From sister − MVR expenses</div>
+        </div>
+        <div class="spend-item">
+          <div class="spend-item-lbl">USD</div>
+          <div class="spend-item-val green" id="ov-spend-usd">$0</div>
+          <div class="spend-item-sub">After USD deductions + savings</div>
+        </div>
+      </div>
+      <div class="spend-total-row">
+        <div class="spend-total-lbl">Total in MVR</div>
+        <div class="spend-total-val" id="ov-spend-total">MVR 0</div>
+      </div>
+    </div>
+
+    <!-- 4. Float -->
+    <div class="float-strip">
+      <div class="float-strip-lbl">Float</div>
+      <div class="float-strip-items">
+        <div class="fsi">
+          <div class="fsi-lbl">MVR cash</div>
+          <div class="fsi-val" id="ov-fl-mvr">MVR 0</div>
+        </div>
+        <div class="fsi">
+          <div class="fsi-lbl">USD cash</div>
+          <div class="fsi-val" id="ov-fl-usd">$0</div>
+        </div>
+      </div>
+      <div class="float-strip-total">
+        <div class="fst-lbl">Total MVR</div>
+        <div class="fst-val" id="ov-fl-total">MVR 0</div>
+      </div>
+    </div>
+
+    <!-- 5. All-time savings -->
+    <div class="alltime-strip">
+      <div class="alltime-lbl">Total savings across all months</div>
+      <div class="alltime-val" id="ov-alltime">$0.00</div>
+    </div>
+  </div>
+
+  <!-- ══ EXPENSES ══ -->
+  <div id="tab-expenses" class="view">
+    <div class="lg-title">Expenses</div>
+
+    <div class="sec-lbl">Income</div>
+    <div class="card card-mb20">
+      <div class="row"><div class="ricon" style="background:#e8f4ff">💵</div><div class="rlbl">Salary</div><input class="inp" type="number" inputmode="decimal" id="inc-sal" placeholder="2500" oninput="calc()"><div class="cur">USD</div></div>
+      <div class="row"><div class="ricon" style="background:#edfbf2">🏨</div><div class="rlbl">Service Charge</div><input class="inp" type="number" inputmode="decimal" id="inc-sc" placeholder="0" oninput="calc()"><div class="cur">USD</div></div>
+      <div class="row"><div class="ricon" style="background:#fff8e8">📅</div><div class="rlbl">Additional</div><input class="inp" type="number" inputmode="decimal" id="inc-fri" placeholder="0" oninput="calc()"><div class="cur">USD</div></div>
+    </div>
+
+    <!-- USD deductions -->
+    <div class="sec-lbl">USD Deductions <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:12px">(paid from USD)</span></div>
+    <div class="card card-mb20">
+      <div class="row"><div class="ricon" style="background:#fef0f8">👩‍👩‍👧</div><div style="flex:1"><div class="rlbl">Money to Mom</div><div class="rsub">Fixed monthly</div></div><input class="inp" type="number" inputmode="decimal" id="ded-mom" placeholder="400" oninput="calc()"><div class="cur">USD</div></div>
+      <div class="row"><div class="ricon" style="background:#f5f5f5">🧹</div><div style="flex:1"><div class="rlbl">Room Clean</div><div class="rsub rsub-room">MVR 0</div></div><input class="inp" type="number" inputmode="decimal" id="ded-room" placeholder="40" oninput="calc()"><div class="cur">USD</div></div>
+      <div class="row"><div class="ricon" style="background:#fff0f0">🔒</div><div style="flex:1"><div class="rlbl">VPN</div><div class="rsub rsub-vpn">MVR 0</div></div><input class="inp" type="number" inputmode="decimal" id="ded-vpn" placeholder="13" oninput="calc()"><div class="cur">USD</div></div>
+      <div class="row"><div class="ricon" style="background:#fff0f0">🛡️</div><div style="flex:1"><div class="rlbl">Pension MV</div><div class="rsub">7% of gross — deducted at source</div></div><div class="rval" id="ded-pension-val" style="font-weight:600;color:var(--lbl2)">$0.00</div><div class="cur">USD</div></div>
+    </div>
+
+    <!-- MVR deductions -->
+    <div class="sec-lbl">MVR Deductions <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:12px">(paid from MVR received from sister)</span></div>
+    <div class="card card-mb20">
+      <div class="row"><div class="ricon" style="background:#fff0f0">🏦</div><div style="flex:1"><div class="rlbl">Loan</div><div class="rsub rsub-loan">USD equiv. 0</div></div><input class="inp" type="number" inputmode="decimal" id="ded-loan" placeholder="907" oninput="calc()"><div class="cur">MVR</div></div>
+    </div>
+
+    <!-- Savings -->
+    <div class="sec-lbl">Savings</div>
+    <div class="card card-mb20">
+      <div class="row save-usd-row">
+        <div class="cur" style="font-size:17px;font-weight:700;color:var(--green);margin-right:0">$</div>
+        <input class="save-usd-inp" type="number" inputmode="decimal" id="save-usd" placeholder="0" min="0" oninput="calc()">
+        <div class="save-usd-desc">
+          <div class="save-usd-pct" id="save-pct-display">0% of balance</div>
+          <div class="save-usd-sub">of remaining USD after deductions</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Post-exchange (MVR) expenses -->
+    <div class="sec-lbl">Post-exchange Expenses <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:12px">(paid in MVR)</span></div>
+    <div class="card card-mb20" id="post-fixed-list"></div>
+
+    <!-- Extras -->
+    <div class="sec-lbl">Extras / One-offs</div>
+    <div class="card card-mb20">
+      <div id="extras-list"></div>
+      <button class="add-btn" onclick="addExtra()"><div class="add-icon">+</div>Add Expense</button>
+    </div>
+
+    <!-- Float -->
+    <div class="sec-lbl">Float / Cash on Hand</div>
+    <div class="card card-mb20">
+      <div class="row"><div class="ricon" style="background:#edfbf2">💵</div><div class="rlbl">MVR Cash</div><input class="inp" type="number" inputmode="decimal" id="fl-mvr" placeholder="0" oninput="calc()"><div class="cur">MVR</div></div>
+      <div class="row"><div class="ricon" style="background:#e8f4ff">💵</div><div class="rlbl">USD Cash</div><input class="inp" type="number" inputmode="decimal" id="fl-usd" placeholder="0" oninput="calc()"><div class="cur">USD</div></div>
+    </div>
+
+    <button class="save-btn" onclick="saveMonth()">Save Month</button>
+  </div>
+
+  <!-- ══ HISTORY ══ -->
+  <div id="tab-history" class="view">
+    <div class="lg-title">History</div>
+    <div id="hist-list"></div>
+  </div>
+
+  <!-- ══ SETTINGS ══ -->
+  <div id="tab-settings" class="view">
+    <div class="lg-title">Settings</div>
+
+    <div class="sec-lbl">Post-exchange Fixed Expenses</div>
+    <div class="card" id="mgr-post"></div>
+    <div class="card" style="margin-top:8px">
+      <button class="add-btn" onclick="addPostFixed()" style="border-top:none"><div class="add-icon">+</div>Add Post-exchange Expense</button>
+    </div>
+
+    <div class="sec-lbl" style="margin-top:8px">Backup & Restore</div>
+    <div class="card">
+      <div class="row" style="cursor:pointer" onclick="syncFromCloud()"><div class="ricon" style="background:#f0eeff">☁️</div><div class="rlbl">Sync from Cloud</div><div class="rval">›</div></div>
+      <div class="row" style="cursor:pointer" onclick="exportJSON()"><div class="ricon" style="background:#e8f4ff">📤</div><div class="rlbl">Export JSON Backup</div><div class="rval">›</div></div>
+      <div class="row" style="cursor:pointer" onclick="exportCSV()"><div class="ricon" style="background:#edfbf2">📊</div><div class="rlbl">Export CSV</div><div class="rval">›</div></div>
+      <div class="row" style="cursor:pointer" onclick="document.getElementById('imp').click()"><div class="ricon" style="background:#fff8e8">📥</div><div class="rlbl">Import JSON Backup</div><div class="rval">›</div></div>
+      <input type="file" id="imp" accept=".json" style="display:none" onchange="importJSON(this)">
+    </div>
+
+    <div class="sec-lbl">Info</div>
+    <div class="card">
+      <div class="row"><div class="rlbl">Exchange Rate</div><div class="rval">1 USD = MVR 15.42</div></div>
+      <div class="row"><div class="rlbl">Pension Rate</div><div class="rval">7% of salary</div></div>
+      <div class="row"><div class="rlbl">Version</div><div class="rval">MyMonie 5.0</div></div>
+    </div>
+
+    <div class="sec-lbl">Danger Zone</div>
+    <div class="card">
+      <div class="row" style="cursor:pointer" onclick="clearMonth()"><div class="rlbl danger-lbl">Clear This Month</div></div>
+      <div class="row" style="cursor:pointer" onclick="clearAll()"><div class="rlbl danger-lbl">Clear All Data</div></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="tab-bar">
+  <button class="ti active" onclick="sw('overview')"><div class="ti-icon">📊</div><div class="ti-lbl">Overview</div></button>
+  <button class="ti" onclick="sw('expenses')"><div class="ti-icon">✏️</div><div class="ti-lbl">Expenses</div></button>
+  <button class="ti" onclick="sw('history')"><div class="ti-icon">🕐</div><div class="ti-lbl">History</div></button>
+  <button class="ti" onclick="sw('settings')"><div class="ti-icon">⚙️</div><div class="ti-lbl">Settings</div></button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const RATE = 15.42;
+const TABS = ['overview','expenses','history','settings'];
+
+const DEF_POST = [
+  {id:'gemini',  name:'Gemini',   amount:20, icon:'🔮', bg:'#fff8e8'},
+  {id:'spotify', name:'Spotify',  amount:6,  icon:'🎵', bg:'#edfbf2'},
+  {id:'claude',  name:'Claude',   amount:20, icon:'🤖', bg:'#f0eeff'},
+  {id:'internet',name:'Internet', amount:70, icon:'🌐', bg:'#e8f4ff'},
+];
+
+let curDate   = new Date();
+let curKey    = mk(curDate);
+let postFixed = JSON.parse(localStorage.getItem('mm_postfixed')||'null') || DEF_POST;
+let data      = JSON.parse(localStorage.getItem('mm_data')||'{}');
+
+function mk(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
+function mlbl(k){ const [y,m]=k.split('-'); return new Date(+y,+m-1,1).toLocaleDateString('en-US',{month:'long',year:'numeric'}); }
+function curD(){ return data[curKey]||{income:{},deduct:{},postFixed:{},extras:[],float:{},savePct:0}; }
+function $id(id){ return document.getElementById(id); }
+function fmt(n,d=2){ return '$'+(+n||0).toFixed(d); }
+function fmn(n,d=2){ return (+(n)||0).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d}); }
+function fmv(n,d=0){ return 'MVR '+fmn(n,d); }
+function toast(msg){ const t=$id('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2000); }
+
+function changeMonth(d){
+  curDate=new Date(curDate.getFullYear(),curDate.getMonth()+d,1);
+  curKey=mk(curDate);
+  $id('monthLbl').textContent=mlbl(curKey);
+  load();
+}
+
+function sw(name){
+  TABS.forEach((n,i)=>{
+    document.querySelectorAll('.ti')[i].classList.toggle('active',n===name);
+    $id('tab-'+n).classList.toggle('active',n===name);
+  });
+  if(name==='history') renderHistory();
+  if(name==='settings') renderMgr();
+  if(name==='overview') calc();
+}
+
+// ── POST-FIXED ──
+function renderPostFixed(){
+  const d=curD();
+  $id('post-fixed-list').innerHTML=postFixed.map(e=>{
+    const amt=d.postFixed?.[e.id]??e.amount;
+    return `<div class="row">
+      <div class="ricon" style="background:${e.bg}">${e.icon}</div>
+      <div style="flex:1"><div class="rlbl">${e.name}</div><div class="rsub pfsub-${e.id}">MVR ${fmn(amt*RATE)}</div></div>
+      <input class="inp" type="number" inputmode="decimal" value="${amt}" data-pid="${e.id}" oninput="onPost(this)">
+      <div class="cur">USD</div>
+    </div>`;
+  }).join('');
+}
+
+function onPost(inp){
+  const v=+inp.value||0;
+  const sub=document.querySelector(`.pfsub-${inp.dataset.pid}`);
+  if(sub) sub.textContent='MVR '+fmn(v*RATE);
+  calc();
+}
+
+// ── EXTRAS ──
+function renderExtras(extras){
+  $id('extras-list').innerHTML=(extras||[]).map((ex,i)=>`
+    <div class="extra-row" data-i="${i}">
+      <button class="del-btn" onclick="delExtra(${i})">−</button>
+      <input class="extra-name" type="text" placeholder="Description" value="${ex.name||''}" oninput="calc()">
+      <input class="extra-amt" type="number" inputmode="decimal" placeholder="0" value="${ex.amount||''}" oninput="calc()">
+      <div class="cur">MVR</div>
+    </div>`).join('');
+}
+
+function addExtra(){
+  const list=$id('extras-list');
+  const i=list.querySelectorAll('.extra-row').length;
+  const div=document.createElement('div');
+  div.className='extra-row'; div.dataset.i=i;
+  div.innerHTML=`<button class="del-btn" onclick="delExtra(${i})">−</button>
+    <input class="extra-name" type="text" placeholder="Description" oninput="calc()">
+    <input class="extra-amt" type="number" inputmode="decimal" placeholder="0" oninput="calc()">
+    <div class="cur">MVR</div>`;
+  list.appendChild(div);
+  div.querySelector('.extra-name').focus();
+}
+
+function delExtra(i){
+  const rows=document.querySelectorAll('#extras-list .extra-row');
+  if(rows[i]){ rows[i].remove(); calc(); }
+}
+
+// ── COLLECT ──
+function collect(){
+  const salary=+$id('inc-sal').value||0;
+  const income={salary, sc:+$id('inc-sc').value||0, friday:+$id('inc-fri').value||0};
+  const pension=salary*0.07;
+  const deduct={
+    mom:   +$id('ded-mom').value||0,
+    room:  +$id('ded-room').value||0,
+    vpn:   +$id('ded-vpn').value||0,
+    pension,
+    loanMVR: +$id('ded-loan').value||0,  // loan stored in MVR
+  };
+  const pf={};
+  document.querySelectorAll('[data-pid]').forEach(i=>{ pf[i.dataset.pid]=+i.value||0; });
+  const extras=[];
+  document.querySelectorAll('#extras-list .extra-row').forEach(r=>{
+    const name=r.querySelector('.extra-name').value.trim();
+    const amount=+r.querySelector('.extra-amt').value||0;
+    if(name||amount) extras.push({name,amount});
+  });
+  const float={mvr:+$id('fl-mvr').value||0, usd:+$id('fl-usd').value||0};
+  const saveUSD=Math.max(+$id('save-usd').value||0,0);
+  return {income,deduct,postFixed:pf,extras,float,saveUSD};
+}
+
+// ── MAIN CALC ──
+function calc(){
+  const d=collect();
+  const salary=d.income.salary;
+  const pension=salary*0.07;
+  const netSalary=salary-pension; // pension deducted at source before it reaches account
+  const totalIncome=netSalary+d.income.sc+d.income.friday;
+
+  // ── USD side ──
+  // Deductions paid in USD: Mom + Room + VPN (pension already gone from gross)
+  const usdDedTotal=d.deduct.mom+d.deduct.room+d.deduct.vpn;
+  const usdAfterDed=totalIncome-usdDedTotal;
+
+  // Savings — user enters USD amount, we compute % for display
+  const saveUSD=Math.min(d.saveUSD, Math.max(usdAfterDed,0));
+  const savePct=usdAfterDed>0?Math.round((saveUSD/usdAfterDed)*100):0;
+
+  // Amount sent to sister = what's left in USD after deductions and savings
+  const sisterUSD=Math.max(usdAfterDed-saveUSD,0);
+  const sisterMVR=sisterUSD*RATE;
+
+  // ── MVR side ──
+  // Loan is in MVR directly
+  const loanMVR=d.deduct.loanMVR;
+  const postFixedMVR=postFixed.reduce((s,e)=>s+((d.postFixed[e.id]??e.amount)*RATE),0);
+  const extrasMVR=d.extras.reduce((s,e)=>s+e.amount,0);
+  const totalMVRDed=loanMVR+postFixedMVR+extrasMVR;
+  const netMVR=sisterMVR-totalMVRDed;
+
+  // ── Available to spend ──
+  // MVR available = net MVR + float MVR
+  const spendMVR=netMVR+(d.float.mvr||0);
+  // USD available = savings kept + float USD
+  const spendUSD=saveUSD+(d.float.usd||0);
+  // Total in MVR
+  const spendTotalMVR=spendMVR+(spendUSD*RATE);
+
+  // ── Total expenses for big-three (USD equiv) ──
+  // USD deductions + loan (MVR→USD) + post-fixed (MVR→USD) + extras (MVR→USD)
+  const totalExpUSD=pension+usdDedTotal+(totalMVRDed/RATE);
+
+  // ── All-time savings ──
+  const allTimeSavings=Object.entries(data).reduce((s,[k,m])=>{
+    if(k===curKey) return s;
+    return s+(m.saveUSD||0);
+  },0)+saveUSD;
+
+  // ── Update UI subs ──
+  $id('ded-pension-val').textContent=fmt(pension);
+  const setSub=(cls,val)=>{ const el=document.querySelector('.'+cls); if(el) el.textContent=val; };
+  setSub('rsub-room','MVR '+fmn(d.deduct.room*RATE));
+  setSub('rsub-vpn', 'MVR '+fmn(d.deduct.vpn*RATE));
+  setSub('rsub-loan','USD equiv. '+fmt(loanMVR/RATE));
+  $id('save-pct-display').textContent=savePct+'% of balance';
+
+  // ── Overview ──
+  $id('ov-subtitle').textContent=mlbl(curKey);
+  $id('ov-income').textContent=fmt(totalIncome,0);
+  $id('ov-income-m').textContent='MVR '+fmn(totalIncome*RATE,0);
+  $id('ov-expenses').textContent=fmt(totalExpUSD,0);
+  $id('ov-expenses-m').textContent='MVR '+fmn(totalExpUSD*RATE,0);
+  $id('ov-savings').textContent=fmt(saveUSD,0);
+  $id('ov-savings-pct').textContent=savePct+'% of USD balance';
+
+  $id('ov-ex-usd').textContent=fmt(sisterUSD);
+  $id('ov-ex-mvr').textContent='MVR '+fmn(sisterMVR,0);
+
+  $id('ov-spend-mvr').textContent=fmn(spendMVR,0);
+  $id('ov-spend-usd').textContent=fmt(spendUSD,0);
+  $id('ov-spend-total').textContent='MVR '+fmn(spendTotalMVR,0);
+
+  const floatTotalMVR=(d.float.mvr||0)+((d.float.usd||0)*RATE);
+  $id('ov-fl-mvr').textContent='MVR '+fmn(d.float.mvr||0,0);
+  $id('ov-fl-usd').textContent=fmt(d.float.usd||0,0);
+  $id('ov-fl-total').textContent='MVR '+fmn(floatTotalMVR,0);
+
+  $id('ov-alltime').textContent=fmt(allTimeSavings);
+}
+
+// ── SAVE / LOAD ──
+function saveMonth(){
+  data[curKey]=collect();
+  localStorage.setItem('mm_data',JSON.stringify(data));
+  calc();
+  toast('Saved ✓');
+}
+
+function load(){
+  const d=curD();
+  $id('inc-sal').value=d.income?.salary||'';
+  $id('inc-sc').value=d.income?.sc||'';
+  $id('inc-fri').value=d.income?.friday||'';
+  $id('ded-mom').value=d.deduct?.mom||'';
+  $id('ded-room').value=d.deduct?.room||'';
+  $id('ded-vpn').value=d.deduct?.vpn||'';
+  $id('ded-loan').value=d.deduct?.loanMVR||'';
+  $id('fl-mvr').value=d.float?.mvr||'';
+  $id('fl-usd').value=d.float?.usd||'';
+  $id('save-usd').value=d.saveUSD||'';
+  renderPostFixed();
+  if(d.postFixed){
+    document.querySelectorAll('[data-pid]').forEach(inp=>{
+      if(d.postFixed[inp.dataset.pid]!==undefined){ inp.value=d.postFixed[inp.dataset.pid]; onPost(inp); }
+    });
+  }
+  renderExtras(d.extras||[]);
+  calc();
+}
+
+// ── HISTORY ──
+function calcMonth(k){
+  const m=data[k];
+  if(!m) return null;
+  const sal=m.income?.salary||0;
+  const p=sal*0.07;
+  const netSal=sal-p;
+  const inc=netSal+(m.income?.sc||0)+(m.income?.friday||0);
+  const usdDed=(m.deduct?.mom||0)+(m.deduct?.room||0)+(m.deduct?.vpn||0);
+  const usdLeft=Math.max(inc-usdDed,0);
+  const sp=m.savePct||0;
+  const saveAmt=m.saveUSD||0;
+  const savePctDisplay=usdLeft>0?Math.round((saveAmt/usdLeft)*100):0;
+  const sisterUSD=Math.max(usdLeft-saveAmt,0);
+  const sisterMVR=sisterUSD*RATE;
+  const loanMVR=m.deduct?.loanMVR||0;
+  const postMVR=postFixed.reduce((s,e)=>s+((m.postFixed?.[e.id]??e.amount)*RATE),0);
+  const extMVR=(m.extras||[]).reduce((s,e)=>s+e.amount,0);
+  const netMVR=sisterMVR-loanMVR-postMVR-extMVR;
+  return {inc,p,netSal,usdDed,usdLeft,sp,saveAmt,savePctDisplay,sisterUSD,sisterMVR,loanMVR,postMVR,extMVR,netMVR,m};
+}
+
+function renderHistory(){
+  const list=$id('hist-list');
+  const keys=Object.keys(data).sort().reverse();
+  if(!keys.length){ list.innerHTML='<div style="text-align:center;color:var(--lbl3);padding:40px 0;font-size:15px">No saved months yet</div>'; return; }
+  list.innerHTML=keys.map(k=>{
+    const r=calcMonth(k); if(!r) return '';
+    const {inc,p,sp,saveAmt,sisterUSD,sisterMVR,loanMVR,netMVR,m}=r;
+    return `<div class="hist-item">
+      <div class="hist-hdr" onclick="togHist('${k}')">
+        <span class="hist-name">${mlbl(k)}</span>
+        <span class="hist-badge ${netMVR>=0?'pos':'neg'}">${fmv(netMVR)}</span>
+        <span class="hist-chev" id="chv-${k}">›</span>
+      </div>
+      <div class="hist-body" id="hb-${k}">
+        <div class="hist-section">Income</div>
+        <div class="hist-detail"><span class="hist-dl">Gross Salary</span><span class="hist-dv">${fmt(m.income?.salary||0)}</span></div>
+        <div class="hist-detail"><span class="hist-dl">Pension (7% — at source)</span><span class="hist-dv">−${fmt(p)}</span></div>
+        <div class="hist-detail"><span class="hist-dl">Net Salary received</span><span class="hist-dv">${fmt(r.netSal)}</span></div>
+        <div class="hist-detail"><span class="hist-dl">Total Income (incl. SC + Additional)</span><span class="hist-dv">${fmt(inc)}</span></div>
+        <div class="hist-section">USD Deductions</div>
+        <div class="hist-detail"><span class="hist-dl">Mom</span><span class="hist-dv">${fmt(m.deduct?.mom||0)}</span></div>
+        <div class="hist-detail"><span class="hist-dl">Room Clean</span><span class="hist-dv">${fmt(m.deduct?.room||0)}</span></div>
+        <div class="hist-detail"><span class="hist-dl">VPN</span><span class="hist-dv">${fmt(m.deduct?.vpn||0)}</span></div>
+        <div class="hist-detail"><span class="hist-dl">Pension (7%)</span><span class="hist-dv">${fmt(p)}</span></div>
+        <div class="hist-section">Savings & Exchange</div>
+        <div class="hist-detail"><span class="hist-dl">Saved (${r.savePctDisplay}%)</span><span class="hist-dv">${fmt(saveAmt)}</span></div>
+        <div class="hist-detail"><span class="hist-dl">Sent to Sister</span><span class="hist-dv">${fmt(sisterUSD)}</span></div>
+        <div class="hist-detail"><span class="hist-dl">Received from Sister</span><span class="hist-dv">${fmv(sisterMVR)}</span></div>
+        <div class="hist-section">MVR Deductions</div>
+        <div class="hist-detail"><span class="hist-dl">Loan</span><span class="hist-dv">${fmv(loanMVR)}</span></div>
+        ${postFixed.map(e=>`<div class="hist-detail"><span class="hist-dl">${e.name}</span><span class="hist-dv">${fmv((m.postFixed?.[e.id]??e.amount)*RATE)}</span></div>`).join('')}
+        ${(m.extras||[]).map(e=>`<div class="hist-detail"><span class="hist-dl">↳ ${e.name||'Extra'}</span><span class="hist-dv">${fmv(e.amount)}</span></div>`).join('')}
+        <div class="hist-section">Result</div>
+        <div class="hist-detail"><span class="hist-dl" style="font-weight:600">Net MVR Remaining</span><span class="hist-dv" style="color:${netMVR>=0?'var(--green)':'var(--red)'}">${fmv(netMVR)}</span></div>
+        <div class="hist-detail"><span class="hist-dl">Float MVR</span><span class="hist-dv">MVR ${fmn(m.float?.mvr||0,0)}</span></div>
+        <div class="hist-detail"><span class="hist-dl">Float USD</span><span class="hist-dv">${fmt(m.float?.usd||0)}</span></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function togHist(k){
+  $id('hb-'+k).classList.toggle('open');
+  $id('chv-'+k).classList.toggle('open');
+}
+
+// ── MANAGE POST FIXED ──
+function renderMgr(){
+  $id('mgr-post').innerHTML=postFixed.map((e,i)=>`
+    <div class="row">
+      <div class="ricon" style="background:${e.bg}">${e.icon}</div>
+      <div class="rlbl">${e.name}</div>
+      <div class="rval">$${e.amount}</div>
+      <button onclick="delPostFixed(${i})" style="background:none;border:none;color:var(--red);font-size:14px;font-family:inherit;cursor:pointer;margin-left:8px">Remove</button>
+    </div>`).join('');
+}
+
+function delPostFixed(i){
+  if(confirm(`Remove "${postFixed[i].name}"?`)){ postFixed.splice(i,1); localStorage.setItem('mm_postfixed',JSON.stringify(postFixed)); renderPostFixed(); renderMgr(); calc(); toast('Removed'); }
+}
+
+function addPostFixed(){
+  const name=prompt('Expense name:'); if(!name) return;
+  const amount=parseFloat(prompt('Default amount (USD):')); if(isNaN(amount)) return;
+  const icons=['💳','📦','🏠','🚗','📺','🍔','💊','🎮'];
+  postFixed.push({id:'c'+Date.now(),name,amount,icon:icons[Math.floor(Math.random()*icons.length)],bg:'#e8f4ff'});
+  localStorage.setItem('mm_postfixed',JSON.stringify(postFixed));
+  renderPostFixed(); renderMgr();
+  toast('Added');
+}
+
+// ── EXPORT / IMPORT ──
+function dl(blob,name){ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click(); }
+function exportJSON(){ dl(new Blob([JSON.stringify({data,postFixed},null,2)],{type:'application/json'}),`MyMonie_${new Date().toISOString().slice(0,10)}.json`); toast('Exported JSON'); }
+function exportCSV(){
+  const rows=[['Month','Income','USDDeductions','Savings%','SavedUSD','SentToSister','ReceivedMVR','LoanMVR','PostExpMVR','NetMVR']];
+  Object.keys(data).sort().forEach(k=>{
+    const r=calcMonth(k); if(!r) return;
+    const {inc,usdDed,saveAmt,savePctDisplay,sisterUSD,sisterMVR,loanMVR,postMVR,extMVR,netMVR}=r;
+    rows.push([mlbl(k),inc.toFixed(2),usdDed.toFixed(2),savePctDisplay,saveAmt.toFixed(2),sisterUSD.toFixed(2),sisterMVR.toFixed(2),loanMVR.toFixed(2),(postMVR+extMVR).toFixed(2),netMVR.toFixed(2)]);
+  });
+  dl(new Blob([rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'}),`MyMonie_${new Date().toISOString().slice(0,10)}.csv`);
+  toast('Exported CSV');
+}
+function importJSON(inp){
+  const file=inp.files[0]; if(!file) return;
+  const r=new FileReader();
+  r.onload=e=>{ try{ const b=JSON.parse(e.target.result); if(b.data){data=b.data;localStorage.setItem('mm_data',JSON.stringify(data));} if(b.postFixed){postFixed=b.postFixed;localStorage.setItem('mm_postfixed',JSON.stringify(postFixed));} load(); toast('Imported!'); }catch{ toast('Import failed'); } };
+  r.readAsText(file);
+}
+function clearMonth(){ if(confirm('Clear '+mlbl(curKey)+'?')){ delete data[curKey]; localStorage.setItem('mm_data',JSON.stringify(data)); load(); toast('Cleared'); } }
+function clearAll(){ if(confirm('Clear ALL data? Cannot be undone.')){ data={}; localStorage.setItem('mm_data','{}'); load(); toast('All cleared'); } }
+
+// ── SUPABASE SYNC ──
+// Replace these with your actual Supabase project URL and anon key
+const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+const SUPABASE_KEY = 'YOUR_SUPABASE_ANON_KEY';
+const USER_ID = 'sifaah'; // fixed user ID since this is personal
+
+let sb = null;
+try {
+  sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+} catch(e) {}
+
+async function syncToCloud(){
+  if(!sb || SUPABASE_URL==='YOUR_SUPABASE_URL') return;
+  try {
+    await sb.from('mymonie').upsert({
+      user_id: USER_ID,
+      data: JSON.stringify(data),
+      post_fixed: JSON.stringify(postFixed),
+      updated_at: new Date().toISOString()
+    }, {onConflict:'user_id'});
+    toast('Saved & synced ✓');
+  } catch(e) { toast('Saved locally ✓'); }
+}
+
+async function syncFromCloud(){
+  if(!sb || SUPABASE_URL==='YOUR_SUPABASE_URL') return;
+  try {
+    const {data:rows}=await sb.from('mymonie').select('*').eq('user_id',USER_ID).single();
+    if(rows){
+      data=JSON.parse(rows.data||'{}');
+      postFixed=JSON.parse(rows.post_fixed||'null')||DEF_POST;
+      localStorage.setItem('mm_data',JSON.stringify(data));
+      localStorage.setItem('mm_postfixed',JSON.stringify(postFixed));
+      load();
+      toast('Synced from cloud');
+    }
+  } catch(e){}
+}
+
+// Patch saveMonth to also sync
+const _origSave = saveMonth;
+saveMonth = function(){
+  data[curKey]=collect();
+  localStorage.setItem('mm_data',JSON.stringify(data));
+  calc();
+  syncToCloud();
+};
+
+// ── INIT ──
+$id('monthLbl').textContent=mlbl(curKey);
+load();
+syncFromCloud();
+</script>
+</body>
+</html>
