@@ -228,9 +228,9 @@ html,body{background:var(--bg);color:var(--lbl);font-family:-apple-system,BlinkM
         <div class="b3-sub" id="ov-expenses-m">MVR 0</div>
       </div>
       <div class="b3card savings">
-        <div class="b3-lbl">Savings</div>
+        <div class="b3-lbl">USD Kept</div>
         <div class="b3-val green" id="ov-savings">$0</div>
-        <div class="b3-sub" id="ov-savings-pct">0%</div>
+        <div class="b3-sub" id="ov-savings-pct">this month</div>
       </div>
     </div>
 
@@ -324,14 +324,14 @@ html,body{background:var(--bg);color:var(--lbl);font-family:-apple-system,BlinkM
     </div>
 
     <!-- Savings -->
-    <div class="sec-lbl">Savings</div>
+    <div class="sec-lbl">USD Exchange Amount</div>
     <div class="card card-mb20">
       <div class="row save-usd-row">
-        <div class="cur" style="font-size:17px;font-weight:700;color:var(--green);margin-right:0">$</div>
-        <input class="save-usd-inp" type="number" inputmode="decimal" id="save-usd" placeholder="0" min="0" oninput="calc()">
+        <div class="cur" style="font-size:17px;font-weight:700;color:var(--indigo);margin-right:0">$</div>
+        <input class="save-usd-inp" type="number" inputmode="decimal" id="save-usd" placeholder="0" min="0" oninput="calc()" style="color:var(--indigo)">
         <div class="save-usd-desc">
-          <div class="save-usd-pct" id="save-pct-display">0% of balance</div>
-          <div class="save-usd-sub">of remaining USD after deductions</div>
+          <div class="save-usd-pct" id="save-pct-display" style="color:var(--indigo)">USD to send to sister</div>
+          <div class="save-usd-sub">You keep: <span id="usd-keep-display" style="font-weight:600;color:var(--green)">$0</span></div>
         </div>
       </div>
     </div>
@@ -560,15 +560,16 @@ function renderDashboard(){
     const inc=netSal+(m.income?.sc||0)+(m.income?.friday||0);
     const usdDed=(m.deduct?.mom||0)+(m.deduct?.room||0)+(m.deduct?.vpn||0);
     const usdLeft=Math.max(inc-usdDed,0);
-    const saveUSD=m.saveUSD||0;
-    const sisterUSD=Math.max(usdLeft-saveUSD,0);
+    const exchangeAmt=m.saveUSD||0;
+    const usdKept=Math.max(usdLeft-exchangeAmt,0);
+    const sisterUSD=exchangeAmt;
     const sisterMVR=sisterUSD*RATE;
     const loanMVR=m.deduct?.loanMVR||0;
     const postMVR=postFixed.reduce((s,e)=>s+((m.postFixed?.[e.id]??e.amount)*RATE),0);
     const extMVR=(m.extras||[]).reduce((s,e)=>s+e.amount,0);
     const netMVR=sisterMVR-loanMVR-postMVR-extMVR;
     const spendMVR=netMVR+(m.float?.mvr||0);
-    const spendUSD=saveUSD+(m.float?.usd||0);
+    const spendUSD=usdKept+(m.float?.usd||0);
     const pos=netMVR>=0;
     return `<div class="db-card" onclick="sw('overview','${k}')">
       <div class="db-card-header">
@@ -681,12 +682,14 @@ function calc(){
   const usdDedTotal=d.deduct.mom+d.deduct.room+d.deduct.vpn;
   const usdAfterDed=totalIncome-usdDedTotal;
 
-  // Savings — user enters USD amount, we compute % for display
-  const saveUSD=Math.min(d.saveUSD, Math.max(usdAfterDed,0));
-  const savePct=usdAfterDed>0?Math.round((saveUSD/usdAfterDed)*100):0;
+  // exchangeUSD = amount you send to sister. What you keep = usdAfterDed - exchangeUSD
+  const exchangeUSD=Math.min(+$id('save-usd').value||0, Math.max(usdAfterDed,0));
+  const usdKept=Math.max(usdAfterDed-exchangeUSD,0);
+  const saveUSD=usdKept; // for backwards compat with collect/storage
+  const savePct=usdAfterDed>0?Math.round((usdKept/usdAfterDed)*100):0;
 
-  // Amount sent to sister = what's left in USD after deductions and savings
-  const sisterUSD=Math.max(usdAfterDed-saveUSD,0);
+  // Sister gets exchangeUSD, gives back MVR
+  const sisterUSD=exchangeUSD;
   const sisterMVR=sisterUSD*RATE;
 
   // ── MVR side ──
@@ -698,22 +701,26 @@ function calc(){
   const netMVR=sisterMVR-totalMVRDed;
 
   // ── Available to spend ──
-  // MVR available = net MVR + float MVR
   const spendMVR=netMVR+(d.float.mvr||0);
-  // USD available = savings kept + float USD
-  const spendUSD=saveUSD+(d.float.usd||0);
-  // Total in MVR
+  const spendUSD=usdKept+(d.float.usd||0);
   const spendTotalMVR=spendMVR+(spendUSD*RATE);
 
-  // ── Total expenses for big-three (USD equiv) ──
-  // USD deductions + loan (MVR→USD) + post-fixed (MVR→USD) + extras (MVR→USD)
+  // ── Total expenses for big-three ──
   const totalExpUSD=pension+usdDedTotal+(totalMVRDed/RATE);
 
-  // ── All-time savings ──
+  // ── All-time USD kept ──
   const allTimeSavings=Object.entries(data).reduce((s,[k,m])=>{
     if(k===curKey) return s;
-    return s+(m.saveUSD||0);
-  },0)+saveUSD;
+    // stored as saveUSD but now means usdKept
+    const sal=m.income?.salary||0;
+    const p=sal*0.07;
+    const netSal=sal-p;
+    const inc=netSal+(m.income?.sc||0)+(m.income?.friday||0);
+    const ded=(m.deduct?.mom||0)+(m.deduct?.room||0)+(m.deduct?.vpn||0);
+    const afterDed=Math.max(inc-ded,0);
+    const exchg=m.saveUSD||0;
+    return s+Math.max(afterDed-exchg,0);
+  },0)+usdKept;
 
   // ── Update UI subs ──
   $id('ded-pension-val').textContent=fmt(pension);
@@ -721,7 +728,8 @@ function calc(){
   setSub('rsub-room','MVR '+fmn(d.deduct.room*RATE));
   setSub('rsub-vpn', 'MVR '+fmn(d.deduct.vpn*RATE));
   setSub('rsub-loan','USD equiv. '+fmt(loanMVR/RATE));
-  $id('save-pct-display').textContent=savePct+'% of balance';
+  $id('save-pct-display').textContent='USD to send to sister';
+  if($id('usd-keep-display')) $id('usd-keep-display').textContent=fmt(usdKept);
 
   // ── Overview ──
   $id('ov-subtitle').textContent=mlbl(curKey);
@@ -729,10 +737,10 @@ function calc(){
   $id('ov-income-m').textContent='MVR '+fmn(totalIncome*RATE,0);
   $id('ov-expenses').textContent=fmt(totalExpUSD,0);
   $id('ov-expenses-m').textContent='MVR '+fmn(totalExpUSD*RATE,0);
-  $id('ov-savings').textContent=fmt(saveUSD,0);
-  $id('ov-savings-pct').textContent=savePct+'% of USD balance';
+  $id('ov-savings').textContent=fmt(usdKept,0);
+  $id('ov-savings-pct').textContent='USD kept this month';
 
-  $id('ov-ex-usd').textContent=fmt(sisterUSD);
+  $id('ov-ex-usd').textContent=fmt(exchangeUSD);
   $id('ov-ex-mvr').textContent='MVR '+fmn(sisterMVR,0);
 
   $id('ov-spend-mvr').textContent=fmn(spendMVR,0);
@@ -788,8 +796,11 @@ function calcMonth(k){
   const usdDed=(m.deduct?.mom||0)+(m.deduct?.room||0)+(m.deduct?.vpn||0);
   const usdLeft=Math.max(inc-usdDed,0);
   const sp=m.savePct||0;
-  const saveAmt=m.saveUSD||0;
-  const savePctDisplay=usdLeft>0?Math.round((saveAmt/usdLeft)*100):0;
+  const exchangeAmt=m.saveUSD||0; // saveUSD stored value = exchange amount sent to sister
+  const usdKept=Math.max(usdLeft-exchangeAmt,0);
+  const saveAmt=usdKept; // for display purposes
+  const savePctDisplay=usdLeft>0?Math.round((usdKept/usdLeft)*100):0;
+  const sisterUSD=exchangeAmt;
   const sisterUSD=Math.max(usdLeft-saveAmt,0);
   const sisterMVR=sisterUSD*RATE;
   const loanMVR=m.deduct?.loanMVR||0;
@@ -824,7 +835,8 @@ function renderHistory(){
         <div class="hist-detail"><span class="hist-dl">VPN</span><span class="hist-dv">${fmt(m.deduct?.vpn||0)}</span></div>
         <div class="hist-detail"><span class="hist-dl">Pension (7%)</span><span class="hist-dv">${fmt(p)}</span></div>
         <div class="hist-section">Savings & Exchange</div>
-        <div class="hist-detail"><span class="hist-dl">Saved (${r.savePctDisplay}%)</span><span class="hist-dv">${fmt(saveAmt)}</span></div>
+        <div class="hist-detail"><span class="hist-dl">Exchange to Sister</span><span class="hist-dv">${fmt(r.sisterUSD)}</span></div>
+        <div class="hist-detail"><span class="hist-dl">USD Kept</span><span class="hist-dv">${fmt(r.saveAmt)}</span></div>
         <div class="hist-detail"><span class="hist-dl">Sent to Sister</span><span class="hist-dv">${fmt(sisterUSD)}</span></div>
         <div class="hist-detail"><span class="hist-dl">Received from Sister</span><span class="hist-dv">${fmv(sisterMVR)}</span></div>
         <div class="hist-section">MVR Deductions</div>
