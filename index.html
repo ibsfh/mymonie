@@ -9,7 +9,6 @@
 <link rel="apple-touch-icon" href="icon.png">
 <link rel="manifest" href="manifest.json">
 <title>MyMonie</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 :root{
@@ -894,19 +893,20 @@ function clearMonth(){ if(confirm('Clear '+mlbl(curKey)+'?')){ delete data[curKe
 function clearAll(){ if(confirm('Clear ALL data? Cannot be undone.')){ data={}; localStorage.setItem('mm_data','{}'); load(); renderDashboard(); toast('All cleared'); } }
 
 async function syncFromCloudManual(){
-  if(!sb||SUPABASE_URL==='YOUR_SUPABASE_URL'){ toast('Supabase not configured'); return; }
   toast('Syncing…');
   try {
-    const {data:rows}=await sb.from('mymonie').select('*').eq('user_id',USER_ID).single();
-    if(rows){
-      data=JSON.parse(rows.data||'{}');
-      postFixed=JSON.parse(rows.post_fixed||'null')||DEF_POST;
+    const row=await sbFetch();
+    if(row){
+      data=JSON.parse(row.data||'{}');
+      postFixed=JSON.parse(row.post_fixed||'null')||DEF_POST;
       localStorage.setItem('mm_data',JSON.stringify(data));
       localStorage.setItem('mm_postfixed',JSON.stringify(postFixed));
       load(); renderDashboard();
       toast('Synced ✓');
+    } else {
+      toast('No cloud data found');
     }
-  } catch(e){ toast('Sync failed'); }
+  } catch(e){ toast('Sync failed: '+e.message); }
 }
 
 // ── RECEIPT SCANNER ──
@@ -1024,49 +1024,67 @@ function addScannedExpense(){
 }
 
 
-// Replace these with your actual Supabase project URL and anon key
-const SUPABASE_URL = 'YOUR_SUPABASE_URL';
-const SUPABASE_KEY = 'YOUR_SUPABASE_ANON_KEY';
-const USER_ID = 'sifaah'; // fixed user ID since this is personal
+// ── SUPABASE (direct fetch, no SDK) ──
+const SUPABASE_URL = 'https://srefzcfejhytvpsmrwom.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNyZWZ6Y2Zlamh5dHZwc21yd29tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzNjM2OTksImV4cCI6MjA5NDkzOTY5OX0.SIplK1qUnnP-uNs8ZZIcWLUxd3VUV80j2FTIgWDk8ao';
+const USER_ID = 'sifaah';
 
-let sb = null;
-try {
-  sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-} catch(e) {}
+const SB_HEADERS = {
+  'Content-Type': 'application/json',
+  'apikey': SUPABASE_KEY,
+  'Authorization': 'Bearer ' + SUPABASE_KEY,
+  'Prefer': 'resolution=merge-duplicates'
+};
 
-// ── SAVE MONTH (reliable async with visual confirmation) ──
+async function sbUpsert(payload){
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/mymonie`, {
+    method: 'POST',
+    headers: { ...SB_HEADERS, 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify(payload)
+  });
+  if(!res.ok){ const t=await res.text(); throw new Error(t); }
+  return true;
+}
+
+async function sbFetch(){
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/mymonie?user_id=eq.${USER_ID}&select=*`, {
+    method: 'GET',
+    headers: SB_HEADERS
+  });
+  if(!res.ok){ const t=await res.text(); throw new Error(t); }
+  const rows = await res.json();
+  return rows?.[0] || null;
+}
+
+// ── SAVE MONTH ──
 async function saveMonth(){
   const btn=$id('save-btn');
   if(btn){ btn.textContent='Saving…'; btn.className='save-btn saving'; }
 
-  // 1. Save locally first
+  // 1. Save locally
   data[curKey]=collect();
   localStorage.setItem('mm_data',JSON.stringify(data));
 
-  // 2. Sync to cloud
+  // 2. Sync to Supabase
   let synced=false;
-  if(sb && SUPABASE_URL!=='YOUR_SUPABASE_URL'){
-    try {
-      const {error}=await sb.from('mymonie').upsert({
-        user_id: USER_ID,
-        data: JSON.stringify(data),
-        post_fixed: JSON.stringify(postFixed),
-        updated_at: new Date().toISOString()
-      },{onConflict:'user_id'});
-      if(!error) synced=true;
-    } catch(e){}
-  }
+  try {
+    await sbUpsert({
+      user_id: USER_ID,
+      data: JSON.stringify(data),
+      post_fixed: JSON.stringify(postFixed),
+      updated_at: new Date().toISOString()
+    });
+    synced=true;
+  } catch(e){ console.error('Sync error:',e.message); }
 
   calc();
 
-  // 3. Clear visual confirmation
   if(btn){
     btn.textContent = synced ? '✓ Saved & Synced' : '✓ Saved Locally';
     btn.className='save-btn saved';
     setTimeout(()=>{ btn.textContent='Save Month'; btn.className='save-btn'; },3000);
   }
 
-  // Refresh dashboard in background
   renderDashboard();
 }
 
@@ -1075,20 +1093,19 @@ $id('monthLbl').textContent=mlbl(curKey);
 const savedKey=localStorage.getItem('mm_apikey')||'';
 if($id('anthropic-key')) $id('anthropic-key').value=savedKey;
 load();
-// Start on dashboard
 sw('dashboard');
-// Sync from cloud on load
-if(sb && SUPABASE_URL!=='YOUR_SUPABASE_URL'){
-  sb.from('mymonie').select('*').eq('user_id',USER_ID).single().then(({data:rows})=>{
-    if(rows){
-      data=JSON.parse(rows.data||'{}');
-      postFixed=JSON.parse(rows.post_fixed||'null')||DEF_POST;
-      localStorage.setItem('mm_data',JSON.stringify(data));
-      localStorage.setItem('mm_postfixed',JSON.stringify(postFixed));
-      renderDashboard();
-    }
-  }).catch(()=>{});
-}
+
+// Pull from Supabase on load
+sbFetch().then(row=>{
+  if(row){
+    data=JSON.parse(row.data||'{}');
+    postFixed=JSON.parse(row.post_fixed||'null')||DEF_POST;
+    localStorage.setItem('mm_data',JSON.stringify(data));
+    localStorage.setItem('mm_postfixed',JSON.stringify(postFixed));
+    renderDashboard();
+  }
+}).catch(e=>console.error('Load error:',e.message));
+
 </script>
 </body>
 </html>
