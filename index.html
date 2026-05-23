@@ -144,9 +144,32 @@ html,body{background:var(--bg);color:var(--lbl);font-family:-apple-system,BlinkM
 .hist-dv{color:var(--lbl);font-weight:500;}
 .hist-section{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--lbl3);padding:10px 16px 2px;border-top:.5px solid var(--sep);}
 
-.save-btn{display:block;width:100%;background:var(--blue);color:#fff;font-family:inherit;font-size:17px;font-weight:600;border:none;border-radius:var(--rl);padding:14px;cursor:pointer;margin-bottom:12px;transition:opacity .15s;}
+.save-btn{display:block;width:100%;background:var(--blue);color:#fff;font-family:inherit;font-size:17px;font-weight:600;border:none;border-radius:var(--rl);padding:14px;cursor:pointer;margin-bottom:12px;transition:all .2s;}
 .save-btn:active{opacity:.8;}
 .danger-lbl{color:var(--red);}
+
+/* ── DASHBOARD MONTH CARDS ── */
+.db-card{background:var(--card);border-radius:var(--rl);margin-bottom:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06),0 0 0 .5px var(--border);cursor:pointer;transition:transform .1s;}
+.db-card:active{transform:scale(0.98);}
+.db-card-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;}
+.db-card-month{font-size:17px;font-weight:700;letter-spacing:-.3px;}
+.db-card-badge{font-size:13px;font-weight:600;padding:4px 12px;border-radius:20px;}
+.db-card-badge.pos{background:rgba(52,199,89,.12);color:var(--green);}
+.db-card-badge.neg{background:rgba(255,59,48,.1);color:var(--red);}
+.db-card-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;border-top:.5px solid var(--sep);}
+.db-card-stat{padding:10px 14px;border-right:.5px solid var(--sep);}
+.db-card-stat:last-child{border-right:none;}
+.db-card-stat-lbl{font-size:10px;color:var(--lbl3);font-weight:500;margin-bottom:3px;text-transform:uppercase;letter-spacing:.3px;}
+.db-card-stat-val{font-size:14px;font-weight:700;letter-spacing:-.3px;}
+.db-card-stat-val.blue{color:var(--blue);}
+.db-card-stat-val.teal{color:var(--teal);}
+.db-card-stat-val.green{color:var(--green);}
+
+/* ── SAVE BUTTON STATES ── */
+.save-btn.saving{background:#8e8e93;pointer-events:none;}
+.save-btn.saved{background:var(--green);}
+
+
 
 .toast{position:fixed;top:calc(env(safe-area-inset-top,44px) + 54px);left:50%;transform:translateX(-50%) translateY(-6px);background:rgba(0,0,0,.75);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);color:#fff;font-size:14px;font-weight:500;padding:9px 20px;border-radius:20px;opacity:0;pointer-events:none;z-index:999;transition:all .25s;white-space:nowrap;}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
@@ -166,6 +189,27 @@ html,body{background:var(--bg);color:var(--lbl);font-family:-apple-system,BlinkM
 </div>
 
 <div class="page">
+
+  <!-- ══ DASHBOARD ══ -->
+  <div id="tab-dashboard" class="view active">
+    <div class="lg-title">MyMonie</div>
+    <div class="lg-sub" id="db-lastsync">–</div>
+
+    <!-- All-time strip -->
+    <div class="alltime-strip" style="margin-bottom:16px">
+      <div class="alltime-lbl">Total savings across all months</div>
+      <div class="alltime-val" id="db-alltime">$0.00</div>
+    </div>
+
+    <!-- New month button -->
+    <button onclick="newMonth()" style="width:100%;background:var(--blue);color:#fff;font-family:inherit;font-size:16px;font-weight:600;border:none;border-radius:var(--rl);padding:13px;cursor:pointer;margin-bottom:20px;display:flex;align-items:center;justify-content:center;gap:8px;">
+      <span style="font-size:20px">+</span> New Month
+    </button>
+
+    <!-- Month cards -->
+    <div class="sec-lbl">All Months</div>
+    <div id="db-months"></div>
+  </div>
 
   <!-- ══ OVERVIEW ══ -->
   <div id="tab-overview" class="view active">
@@ -312,7 +356,7 @@ html,body{background:var(--bg);color:var(--lbl);font-family:-apple-system,BlinkM
       <div class="row"><div class="ricon" style="background:#e8f4ff">💵</div><div class="rlbl">USD Cash</div><input class="inp" type="number" inputmode="decimal" id="fl-usd" placeholder="0" oninput="calc()"><div class="cur">USD</div></div>
     </div>
 
-    <button class="save-btn" onclick="saveMonth()">Save Month</button>
+    <button class="save-btn" id="save-btn" onclick="saveMonth()">Save Month</button>
   </div>
 
   <!-- ══ HISTORY ══ -->
@@ -333,7 +377,7 @@ html,body{background:var(--bg);color:var(--lbl);font-family:-apple-system,BlinkM
 
     <div class="sec-lbl" style="margin-top:8px">Backup & Restore</div>
     <div class="card">
-      <div class="row" style="cursor:pointer" onclick="syncFromCloud()"><div class="ricon" style="background:#f0eeff">☁️</div><div class="rlbl">Sync from Cloud</div><div class="rval">›</div></div>
+      <div class="row" style="cursor:pointer" onclick="syncFromCloudManual()"><div class="ricon" style="background:#f0eeff">☁️</div><div class="rlbl">Sync from Cloud</div><div class="rval">›</div></div>
       <div class="row" style="cursor:pointer" onclick="exportJSON()"><div class="ricon" style="background:#e8f4ff">📤</div><div class="rlbl">Export JSON Backup</div><div class="rval">›</div></div>
       <div class="row" style="cursor:pointer" onclick="exportCSV()"><div class="ricon" style="background:#edfbf2">📊</div><div class="rlbl">Export CSV</div><div class="rval">›</div></div>
       <div class="row" style="cursor:pointer" onclick="document.getElementById('imp').click()"><div class="ricon" style="background:#fff8e8">📥</div><div class="rlbl">Import JSON Backup</div><div class="rval">›</div></div>
@@ -421,7 +465,8 @@ html,body{background:var(--bg);color:var(--lbl);font-family:-apple-system,BlinkM
 </div>
 
 <div class="tab-bar">
-  <button class="ti active" onclick="sw('overview')"><div class="ti-icon">📊</div><div class="ti-lbl">Overview</div></button>
+  <button class="ti active" onclick="sw('dashboard')"><div class="ti-icon">🏠</div><div class="ti-lbl">Home</div></button>
+  <button class="ti" onclick="sw('overview')"><div class="ti-icon">📊</div><div class="ti-lbl">Overview</div></button>
   <button class="ti" onclick="sw('expenses')"><div class="ti-icon">✏️</div><div class="ti-lbl">Expenses</div></button>
   <button class="ti" onclick="sw('history')"><div class="ti-icon">🕐</div><div class="ti-lbl">History</div></button>
   <button class="ti" onclick="sw('settings')"><div class="ti-icon">⚙️</div><div class="ti-lbl">Settings</div></button>
@@ -431,7 +476,7 @@ html,body{background:var(--bg);color:var(--lbl);font-family:-apple-system,BlinkM
 
 <script>
 const RATE = 15.42;
-const TABS = ['overview','expenses','history','settings'];
+const TABS = ['dashboard','overview','expenses','history','settings'];
 
 const DEF_POST = [
   {id:'gemini',  name:'Gemini',   amount:20, icon:'🔮', bg:'#fff8e8'},
@@ -461,14 +506,92 @@ function changeMonth(d){
   load();
 }
 
-function sw(name){
+function sw(name, key){
   TABS.forEach((n,i)=>{
     document.querySelectorAll('.ti')[i].classList.toggle('active',n===name);
     $id('tab-'+n).classList.toggle('active',n===name);
   });
+  if(name==='dashboard') renderDashboard();
   if(name==='history') renderHistory();
   if(name==='settings') renderMgr();
-  if(name==='overview') calc();
+  if(name==='overview'||name==='expenses'){
+    if(key){ curDate=new Date(key.split('-')[0],+key.split('-')[1]-1,1); curKey=key; $id('monthLbl').textContent=mlbl(curKey); load(); }
+    else calc();
+  }
+}
+
+function newMonth(){
+  // Default to next month after most recent saved, or current month
+  const keys=Object.keys(data).sort();
+  let next;
+  if(keys.length){
+    const last=keys[keys.length-1];
+    const [y,m]=last.split('-');
+    const d=new Date(+y,+m,1); // next month
+    next=mk(d);
+  } else {
+    next=mk(new Date());
+  }
+  curDate=new Date(next.split('-')[0],+next.split('-')[1]-1,1);
+  curKey=next;
+  $id('monthLbl').textContent=mlbl(curKey);
+  load();
+  sw('expenses');
+}
+
+function renderDashboard(){
+  // All-time savings
+  const allTime=Object.values(data).reduce((s,m)=>s+(m.saveUSD||0),0);
+  $id('db-alltime').textContent=fmt(allTime);
+  $id('db-lastsync').textContent='Last synced: '+new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+
+  const container=$id('db-months');
+  const keys=Object.keys(data).sort().reverse();
+
+  if(!keys.length){
+    container.innerHTML='<div style="text-align:center;color:var(--lbl3);padding:40px 0;font-size:15px">No months saved yet.<br>Tap New Month to get started.</div>';
+    return;
+  }
+
+  container.innerHTML=keys.map(k=>{
+    const m=data[k];
+    const sal=m.income?.salary||0;
+    const p=sal*0.07;
+    const netSal=sal-p;
+    const inc=netSal+(m.income?.sc||0)+(m.income?.friday||0);
+    const usdDed=(m.deduct?.mom||0)+(m.deduct?.room||0)+(m.deduct?.vpn||0);
+    const usdLeft=Math.max(inc-usdDed,0);
+    const saveUSD=m.saveUSD||0;
+    const sisterUSD=Math.max(usdLeft-saveUSD,0);
+    const sisterMVR=sisterUSD*RATE;
+    const loanMVR=m.deduct?.loanMVR||0;
+    const postMVR=postFixed.reduce((s,e)=>s+((m.postFixed?.[e.id]??e.amount)*RATE),0);
+    const extMVR=(m.extras||[]).reduce((s,e)=>s+e.amount,0);
+    const netMVR=sisterMVR-loanMVR-postMVR-extMVR;
+    const spendMVR=netMVR+(m.float?.mvr||0);
+    const spendUSD=saveUSD+(m.float?.usd||0);
+    const pos=netMVR>=0;
+    return `<div class="db-card" onclick="sw('overview','${k}')">
+      <div class="db-card-header">
+        <div class="db-card-month">${mlbl(k)}</div>
+        <div class="db-card-badge ${pos?'pos':'neg'}">${pos?'+':''}MVR ${Math.round(netMVR).toLocaleString()}</div>
+      </div>
+      <div class="db-card-grid">
+        <div class="db-card-stat">
+          <div class="db-card-stat-lbl">Income</div>
+          <div class="db-card-stat-val blue">${fmt(inc,0)}</div>
+        </div>
+        <div class="db-card-stat">
+          <div class="db-card-stat-lbl">Saved</div>
+          <div class="db-card-stat-val green">${fmt(saveUSD,0)}</div>
+        </div>
+        <div class="db-card-stat">
+          <div class="db-card-stat-lbl">Spend MVR</div>
+          <div class="db-card-stat-val teal">MVR ${Math.round(spendMVR).toLocaleString()}</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 // ── POST-FIXED ──
@@ -767,8 +890,24 @@ function importJSON(inp){
   r.onload=e=>{ try{ const b=JSON.parse(e.target.result); if(b.data){data=b.data;localStorage.setItem('mm_data',JSON.stringify(data));} if(b.postFixed){postFixed=b.postFixed;localStorage.setItem('mm_postfixed',JSON.stringify(postFixed));} load(); toast('Imported!'); }catch{ toast('Import failed'); } };
   r.readAsText(file);
 }
-function clearMonth(){ if(confirm('Clear '+mlbl(curKey)+'?')){ delete data[curKey]; localStorage.setItem('mm_data',JSON.stringify(data)); load(); toast('Cleared'); } }
-function clearAll(){ if(confirm('Clear ALL data? Cannot be undone.')){ data={}; localStorage.setItem('mm_data','{}'); load(); toast('All cleared'); } }
+function clearMonth(){ if(confirm('Clear '+mlbl(curKey)+'?')){ delete data[curKey]; localStorage.setItem('mm_data',JSON.stringify(data)); load(); renderDashboard(); toast('Cleared'); } }
+function clearAll(){ if(confirm('Clear ALL data? Cannot be undone.')){ data={}; localStorage.setItem('mm_data','{}'); load(); renderDashboard(); toast('All cleared'); } }
+
+async function syncFromCloudManual(){
+  if(!sb||SUPABASE_URL==='YOUR_SUPABASE_URL'){ toast('Supabase not configured'); return; }
+  toast('Syncing…');
+  try {
+    const {data:rows}=await sb.from('mymonie').select('*').eq('user_id',USER_ID).single();
+    if(rows){
+      data=JSON.parse(rows.data||'{}');
+      postFixed=JSON.parse(rows.post_fixed||'null')||DEF_POST;
+      localStorage.setItem('mm_data',JSON.stringify(data));
+      localStorage.setItem('mm_postfixed',JSON.stringify(postFixed));
+      load(); renderDashboard();
+      toast('Synced ✓');
+    }
+  } catch(e){ toast('Sync failed'); }
+}
 
 // ── RECEIPT SCANNER ──
 function openScanner(){
@@ -895,50 +1034,61 @@ try {
   sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 } catch(e) {}
 
-async function syncToCloud(){
-  if(!sb || SUPABASE_URL==='YOUR_SUPABASE_URL') return;
-  try {
-    await sb.from('mymonie').upsert({
-      user_id: USER_ID,
-      data: JSON.stringify(data),
-      post_fixed: JSON.stringify(postFixed),
-      updated_at: new Date().toISOString()
-    }, {onConflict:'user_id'});
-    toast('Saved & synced ✓');
-  } catch(e) { toast('Saved locally ✓'); }
+// ── SAVE MONTH (reliable async with visual confirmation) ──
+async function saveMonth(){
+  const btn=$id('save-btn');
+  if(btn){ btn.textContent='Saving…'; btn.className='save-btn saving'; }
+
+  // 1. Save locally first
+  data[curKey]=collect();
+  localStorage.setItem('mm_data',JSON.stringify(data));
+
+  // 2. Sync to cloud
+  let synced=false;
+  if(sb && SUPABASE_URL!=='YOUR_SUPABASE_URL'){
+    try {
+      const {error}=await sb.from('mymonie').upsert({
+        user_id: USER_ID,
+        data: JSON.stringify(data),
+        post_fixed: JSON.stringify(postFixed),
+        updated_at: new Date().toISOString()
+      },{onConflict:'user_id'});
+      if(!error) synced=true;
+    } catch(e){}
+  }
+
+  calc();
+
+  // 3. Clear visual confirmation
+  if(btn){
+    btn.textContent = synced ? '✓ Saved & Synced' : '✓ Saved Locally';
+    btn.className='save-btn saved';
+    setTimeout(()=>{ btn.textContent='Save Month'; btn.className='save-btn'; },3000);
+  }
+
+  // Refresh dashboard in background
+  renderDashboard();
 }
 
-async function syncFromCloud(){
-  if(!sb || SUPABASE_URL==='YOUR_SUPABASE_URL') return;
-  try {
-    const {data:rows}=await sb.from('mymonie').select('*').eq('user_id',USER_ID).single();
+// ── INIT ──
+$id('monthLbl').textContent=mlbl(curKey);
+const savedKey=localStorage.getItem('mm_apikey')||'';
+if($id('anthropic-key')) $id('anthropic-key').value=savedKey;
+load();
+// Start on dashboard
+sw('dashboard');
+// Sync from cloud on load
+if(sb && SUPABASE_URL!=='YOUR_SUPABASE_URL'){
+  sb.from('mymonie').select('*').eq('user_id',USER_ID).single().then(({data:rows})=>{
     if(rows){
       data=JSON.parse(rows.data||'{}');
       postFixed=JSON.parse(rows.post_fixed||'null')||DEF_POST;
       localStorage.setItem('mm_data',JSON.stringify(data));
       localStorage.setItem('mm_postfixed',JSON.stringify(postFixed));
-      load();
-      toast('Synced from cloud');
+      renderDashboard();
     }
-  } catch(e){}
+  }).catch(()=>{});
 }
-
-// Patch saveMonth to also sync
-const _origSave = saveMonth;
-saveMonth = function(){
-  data[curKey]=collect();
-  localStorage.setItem('mm_data',JSON.stringify(data));
-  calc();
-  syncToCloud();
-};
-
-// ── INIT ──
-$id('monthLbl').textContent=mlbl(curKey);
-// Load API key into settings field
-const savedKey=localStorage.getItem('mm_apikey')||'';
-if($id('anthropic-key')) $id('anthropic-key').value=savedKey;
-load();
-syncFromCloud();
 </script>
 </body>
 </html>
