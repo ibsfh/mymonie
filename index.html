@@ -1095,16 +1095,19 @@ if($id('anthropic-key')) $id('anthropic-key').value=savedKey;
 load();
 sw('dashboard');
 
-// Pull from Supabase on load
-sbFetch().then(row=>{
-  if(row){
-    data=JSON.parse(row.data||'{}');
-    postFixed=JSON.parse(row.post_fixed||'null')||DEF_POST;
-    localStorage.setItem('mm_data',JSON.stringify(data));
-    localStorage.setItem('mm_postfixed',JSON.stringify(postFixed));
-    renderDashboard();
-  }
-}).catch(e=>console.error('Load error:',e.message));
+// Pull from Supabase on load — only if local data is empty
+const localDataEmpty = Object.keys(data).length === 0;
+if(localDataEmpty){
+  sbFetch().then(row=>{
+    if(row){
+      data=JSON.parse(row.data||'{}');
+      postFixed=JSON.parse(row.post_fixed||'null')||DEF_POST;
+      localStorage.setItem('mm_data',JSON.stringify(data));
+      localStorage.setItem('mm_postfixed',JSON.stringify(postFixed));
+      renderDashboard();
+    }
+  }).catch(e=>console.error('Load error:',e.message));
+}
 
 </script>
 </body>
