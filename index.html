@@ -302,6 +302,7 @@ html,body{background:var(--bg);color:var(--lbl);font-family:-apple-system,BlinkM
     <div class="card card-mb20">
       <div id="extras-list"></div>
       <button class="add-btn" onclick="addExtra()"><div class="add-icon">+</div>Add Expense</button>
+      <button class="add-btn" onclick="openScanner()" style="border-top:.5px solid var(--sep)"><div class="add-icon" style="background:var(--orange)">📷</div>Scan Receipt</button>
     </div>
 
     <!-- Float -->
@@ -343,7 +344,20 @@ html,body{background:var(--bg);color:var(--lbl);font-family:-apple-system,BlinkM
     <div class="card">
       <div class="row"><div class="rlbl">Exchange Rate</div><div class="rval">1 USD = MVR 15.42</div></div>
       <div class="row"><div class="rlbl">Pension Rate</div><div class="rval">7% of salary</div></div>
-      <div class="row"><div class="rlbl">Version</div><div class="rval">MyMonie 5.0</div></div>
+      <div class="row"><div class="rlbl">Version</div><div class="rval">MyMonie 6.0</div></div>
+    </div>
+
+    <div class="sec-lbl">Receipt Scanning</div>
+    <div class="card">
+      <div class="row">
+        <div class="ricon" style="background:#e8f4ff">🔵</div>
+        <div style="flex:1"><div class="rlbl">Gemini API Key</div><div class="rsub">For receipt scanning</div></div>
+      </div>
+      <div style="padding:0 16px 12px">
+        <input type="password" id="anthropic-key" class="inp"
+          style="width:100%;text-align:left;background:var(--bg);border:.5px solid var(--sep);border-radius:8px;padding:8px 10px;font-size:13px;color:var(--lbl2)"
+          placeholder="AIzaSy..." oninput="localStorage.setItem('mm_apikey',this.value)">
+      </div>
     </div>
 
     <div class="sec-lbl">Danger Zone</div>
@@ -353,6 +367,57 @@ html,body{background:var(--bg);color:var(--lbl);font-family:-apple-system,BlinkM
     </div>
   </div>
 
+</div>
+
+<!-- ── RECEIPT SCANNER MODAL ── -->
+<div id="scan-modal" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.5);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);padding:env(safe-area-inset-top,20px) 16px env(safe-area-inset-bottom,20px);">
+  <div style="background:var(--card);border-radius:20px;overflow:hidden;max-width:430px;margin:40px auto 0;">
+    <div style="padding:16px 20px;border-bottom:.5px solid var(--sep);display:flex;justify-content:space-between;align-items:center;">
+      <div style="font-size:17px;font-weight:600">Scan Receipt</div>
+      <button onclick="closeScanner()" style="background:var(--bg);border:none;border-radius:50%;width:28px;height:28px;font-size:16px;cursor:pointer;color:var(--lbl3)">✕</button>
+    </div>
+    <div style="padding:20px;">
+      <!-- Upload area -->
+      <div id="scan-upload-area" style="border:2px dashed var(--sep);border-radius:14px;padding:32px 20px;text-align:center;cursor:pointer;transition:border-color .2s" onclick="$id('scan-file').click()">
+        <div style="font-size:40px;margin-bottom:8px">📷</div>
+        <div style="font-size:15px;font-weight:600;color:var(--lbl2)">Tap to upload receipt</div>
+        <div style="font-size:12px;color:var(--lbl3);margin-top:4px">Photo or screenshot from bank app</div>
+        <input type="file" id="scan-file" accept="image/*" style="display:none" onchange="handleReceiptImage(this)">
+      </div>
+      <!-- Preview -->
+      <div id="scan-preview" style="display:none;margin-top:12px">
+        <img id="scan-img" style="width:100%;border-radius:10px;max-height:200px;object-fit:cover">
+      </div>
+      <!-- Scanning state -->
+      <div id="scan-loading" style="display:none;text-align:center;padding:20px 0">
+        <div style="font-size:13px;color:var(--lbl3)">Reading receipt…</div>
+      </div>
+      <!-- Result -->
+      <div id="scan-result" style="display:none;margin-top:16px">
+        <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--lbl3);margin-bottom:8px">Scanned Details</div>
+        <div style="background:var(--bg);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px;">
+          <div>
+            <div style="font-size:11px;color:var(--lbl3);margin-bottom:4px">Description</div>
+            <input id="scan-desc" type="text" style="width:100%;background:var(--card);border:.5px solid var(--sep);border-radius:8px;padding:8px 10px;font-family:inherit;font-size:15px;outline:none;color:var(--lbl)">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <div>
+              <div style="font-size:11px;color:var(--lbl3);margin-bottom:4px">Amount</div>
+              <input id="scan-amount" type="number" inputmode="decimal" style="width:100%;background:var(--card);border:.5px solid var(--sep);border-radius:8px;padding:8px 10px;font-family:inherit;font-size:15px;outline:none;color:var(--lbl)">
+            </div>
+            <div>
+              <div style="font-size:11px;color:var(--lbl3);margin-bottom:4px">Currency</div>
+              <select id="scan-currency" style="width:100%;background:var(--card);border:.5px solid var(--sep);border-radius:8px;padding:8px 10px;font-family:inherit;font-size:15px;outline:none;color:var(--lbl)">
+                <option value="MVR">MVR</option>
+                <option value="USD">USD</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <button onclick="addScannedExpense()" style="width:100%;margin-top:12px;background:var(--blue);color:#fff;font-family:inherit;font-size:16px;font-weight:600;border:none;border-radius:12px;padding:13px;cursor:pointer;">Add to Expenses</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div class="tab-bar">
@@ -705,10 +770,91 @@ function importJSON(inp){
 function clearMonth(){ if(confirm('Clear '+mlbl(curKey)+'?')){ delete data[curKey]; localStorage.setItem('mm_data',JSON.stringify(data)); load(); toast('Cleared'); } }
 function clearAll(){ if(confirm('Clear ALL data? Cannot be undone.')){ data={}; localStorage.setItem('mm_data','{}'); load(); toast('All cleared'); } }
 
-// ── SUPABASE SYNC ──
+// ── RECEIPT SCANNER ──
+function openScanner(){
+  $id('scan-modal').style.display='block';
+  $id('scan-result').style.display='none';
+  $id('scan-preview').style.display='none';
+  $id('scan-loading').style.display='none';
+  $id('scan-upload-area').style.display='block';
+  $id('scan-file').value='';
+}
+
+function closeScanner(){ $id('scan-modal').style.display='none'; }
+
+async function handleReceiptImage(inp){
+  const file=inp.files[0]; if(!file) return;
+  const apiKey=localStorage.getItem('mm_apikey')||'';
+  if(!apiKey){ toast('Add Gemini API key in Settings first'); closeScanner(); return; }
+
+  const reader=new FileReader();
+  reader.onload=async(e)=>{
+    const b64=e.target.result.split(',')[1];
+    const mime=file.type||'image/jpeg';
+    $id('scan-img').src=e.target.result;
+    $id('scan-preview').style.display='block';
+    $id('scan-upload-area').style.display='none';
+    $id('scan-loading').style.display='block';
+    $id('scan-result').style.display='none';
+
+    try {
+      const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          contents:[{parts:[
+            {inline_data:{mime_type:mime,data:b64}},
+            {text:'This is a bank transaction receipt. Extract: 1) merchant name or description, 2) total amount paid, 3) currency (MVR or USD). Reply ONLY with JSON, no markdown: {"description":"...","amount":0.00,"currency":"MVR or USD"}. If currency unclear, default to MVR.'}
+          ]}],
+          generationConfig:{maxOutputTokens:300,temperature:0}
+        })
+      });
+      const json=await res.json();
+      const txt=json.candidates?.[0]?.content?.parts?.[0]?.text||'{}';
+      const clean=txt.replace(/```json|```/g,'').trim();
+      const parsed=JSON.parse(clean);
+      $id('scan-desc').value=parsed.description||'';
+      $id('scan-amount').value=parsed.amount||'';
+      $id('scan-currency').value=parsed.currency==='USD'?'USD':'MVR';
+      $id('scan-loading').style.display='none';
+      $id('scan-result').style.display='block';
+    } catch(err){
+      $id('scan-loading').style.display='none';
+      toast('Could not read receipt. Try again.');
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+function addScannedExpense(){
+  const desc=$id('scan-desc').value.trim()||'Receipt';
+  const amount=parseFloat($id('scan-amount').value)||0;
+  const currency=$id('scan-currency').value;
+
+  // Convert to MVR if USD
+  const mvrAmount=currency==='USD'?amount*RATE:amount;
+
+  // Add to extras list
+  const list=$id('extras-list');
+  const i=list.querySelectorAll('.extra-row').length;
+  const div=document.createElement('div');
+  div.className='extra-row'; div.dataset.i=i;
+  div.innerHTML=`<button class="del-btn" onclick="delExtra(${i})">−</button>
+    <input class="extra-name" type="text" value="${desc}" oninput="calc()">
+    <input class="extra-amt" type="number" inputmode="decimal" value="${mvrAmount.toFixed(2)}" oninput="calc()">
+    <div class="cur">MVR</div>`;
+  list.appendChild(div);
+  calc();
+  closeScanner();
+  toast(`Added: ${desc}`);
+  // Switch to expenses tab so they can see it
+  sw('expenses');
+}
+
+
 // Replace these with your actual Supabase project URL and anon key
-const SUPABASE_URL = 'https://srefzcfejhytvpsmrwom.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNyZWZ6Y2Zlamh5dHZwc21yd29tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzNjM2OTksImV4cCI6MjA5NDkzOTY5OX0.SIplK1qUnnP-uNs8ZZIcWLUxd3VUV80j2FTIgWDk8ao';
+const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+const SUPABASE_KEY = 'YOUR_SUPABASE_ANON_KEY';
 const USER_ID = 'sifaah'; // fixed user ID since this is personal
 
 let sb = null;
@@ -755,6 +901,9 @@ saveMonth = function(){
 
 // ── INIT ──
 $id('monthLbl').textContent=mlbl(curKey);
+// Load API key into settings field
+const savedKey=localStorage.getItem('mm_apikey')||'';
+if($id('anthropic-key')) $id('anthropic-key').value=savedKey;
 load();
 syncFromCloud();
 </script>
